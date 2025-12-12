@@ -1,0 +1,100 @@
+@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&family=Varela+Round&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #2f2a3b;
+  background-color: #f7dbe5;
+}
+
+* {
+  @apply antialiased;
+}
+
+body {
+  min-height: 100vh;
+  @apply font-body text-ink;
+  background: radial-gradient(circle at 10% 10%, #f0e2ff 10%, transparent 25%),
+    radial-gradient(circle at 90% 15%, #f5c8d8 12%, transparent 26%),
+    linear-gradient(180deg, #f7dbe5 0%, #f2e6ff 40%, #f7dbe5 100%);
+}
+
+.heading-script {
+  font-family: "Varela Round", "Nunito Sans", sans-serif;
+  letter-spacing: 0.015em;
+  font-weight: 700;
+}
+
+.glass-card {
+  @apply bg-white/70 backdrop-blur-md border border-white/50 shadow-soft;
+}
+
+.pill {
+  @apply rounded-full px-4 py-2 bg-white/60 border border-white/70 text-sm;
+}
+
+.cta-button {
+  @apply inline-flex items-center gap-2 px-5 py-3 rounded-full bg-ink text-white font-semibold;
+  @apply shadow-lg shadow-ink/20 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink;
+}
+
+.outline-button {
+  @apply inline-flex items-center gap-2 px-4 py-2 rounded-full border border-ink/20 text-ink hover:border-ink/50 transition-colors font-semibold;
+}
+
+.flipbook {
+  perspective: 1600px;
+}
+
+.page-card {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  transition: transform 0.6s ease, box-shadow 0.3s ease;
+}
+
+.page-card.flip-next {
+  animation: flipNext 0.7s ease forwards;
+}
+
+.page-card.flip-prev {
+  animation: flipPrev 0.7s ease forwards;
+}
+
+@keyframes flipNext {
+  0% {
+    transform: rotateY(0deg);
+  }
+  45% {
+    transform: rotateY(-95deg);
+  }
+  55% {
+    transform: rotateY(95deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
+}
+
+@keyframes flipPrev {
+  0% {
+    transform: rotateY(0deg);
+  }
+  45% {
+    transform: rotateY(95deg);
+  }
+  55% {
+    transform: rotateY(-95deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-card {
+    transition: none;
+    animation: none !important;
+  }
+}
