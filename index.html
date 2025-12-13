@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Great+Vibes&display=swap" rel="stylesheet">
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root {
       --bg: #fff0f5;
@@ -500,12 +502,114 @@
         height: 280px;
       }
     }
+    /* Preview Modal */
+    .preview-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .preview-modal.show {
+      display: flex;
+      opacity: 1;
+    }
+    .preview-content {
+      background: #fff;
+      border-radius: 18px;
+      padding: 24px;
+      max-width: 95vw;
+      max-height: 95vh;
+      width: auto;
+      height: auto;
+      position: relative;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+    .preview-modal.show .preview-content {
+      transform: scale(1);
+    }
+    .preview-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0, 0, 0, 0.1);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: all 0.2s ease;
+      z-index: 10;
+    }
+    .preview-close:hover {
+      background: rgba(0, 0, 0, 0.2);
+      transform: rotate(90deg);
+    }
+    .preview-canvas-container {
+      max-width: 100%;
+      max-height: calc(95vh - 80px);
+      overflow: auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .preview-canvas-container canvas {
+      max-width: 100%;
+      max-height: calc(95vh - 80px);
+      width: auto;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      object-fit: contain;
+    }
+    /* Download button animation */
+    .download-btn-pulse {
+      animation: downloadPulse 2s ease-in-out infinite;
+    }
+    @keyframes downloadPulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 12px 28px rgba(217, 91, 143, 0.35);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 16px 40px rgba(217, 91, 143, 0.5);
+      }
+    }
+    .download-btn-glow {
+      animation: downloadGlow 2s ease-in-out infinite;
+    }
+    @keyframes downloadGlow {
+      0%, 100% {
+        box-shadow: 0 12px 28px rgba(217, 91, 143, 0.35), 0 0 0 0 rgba(217, 91, 143, 0.4);
+      }
+      50% {
+        box-shadow: 0 16px 40px rgba(217, 91, 143, 0.5), 0 0 20px 8px rgba(217, 91, 143, 0.3);
+      }
+    }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.001ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
         scroll-behavior: auto !important;
+      }
+      .download-btn-pulse,
+      .download-btn-glow {
+        animation: none !important;
       }
     }
   </style>
@@ -668,7 +772,11 @@
           </div>
           <div class="field">
             <label for="phone">Số điện thoại (tuỳ chọn)</label>
-            <input id="phone" name="phone" placeholder="09xx xxx xxx">
+            <input id="phone" name="phone" type="tel" placeholder="09xx xxx xxx">
+          </div>
+          <div class="field">
+            <label for="email">Email (tuỳ chọn)</label>
+            <input id="email" name="email" type="email" placeholder="your.email@example.com">
           </div>
           <div class="field">
             <label for="note">Lời nhắn (tuỳ chọn)</label>
@@ -679,6 +787,11 @@
             <span class="success" id="success">Đã nhận lời hẹn! Hẹn gặp bạn nhé.</span>
             <span class="error" id="error">Vui lòng điền tên và số người.</span>
           </div>
+          <div id="download-section" style="display: none; margin-top: 16px; text-align: center;">
+            <button class="cta" id="download-invitation-btn" style="background: var(--accent);">
+              📥 Tải thiệp mời
+            </button>
+          </div>
         </form>
         <div class="divider"></div>
         <h4 class="page-title" style="margin-top:0; justify-content: center;">Chia sẻ</h4>
@@ -686,6 +799,14 @@
           <button class="share-btn" data-share="copy">Copy link</button>
         </div>
       </section>
+    </div>
+  </div>
+
+  <!-- Preview Modal -->
+  <div class="preview-modal" id="preview-modal">
+    <div class="preview-content">
+      <button class="preview-close" id="preview-close" aria-label="Đóng">×</button>
+      <div class="preview-canvas-container" id="preview-canvas-container"></div>
     </div>
   </div>
 
@@ -747,6 +868,9 @@
       PUBLIC_KEY: 'ffaHgFzV8Rn0qOdLG'
     };
     
+    // Control flag: Set to true to enable email sending, false to disable (for testing)
+    const ENABLE_EMAIL_SENDING = true;
+    
     // Khởi tạo EmailJS khi script đã load
     (function() {
       if (typeof emailjs !== 'undefined') {
@@ -787,10 +911,13 @@
           submitBtn.textContent = 'Đang gửi...';
         }
         
+        const email = form.email.value.trim();
+        
         const payload = {
           name,
           count,
           phone: form.phone.value.trim() || 'Không có',
+          email: email || 'Không có',
           note: form.note.value.trim() || 'Không có',
           date: new Date().toLocaleString('vi-VN', { 
             timeZone: 'Asia/Ho_Chi_Minh',
@@ -810,23 +937,33 @@
           console.warn('Cannot store RSVP', err);
         }
         
-        // Gửi email qua EmailJS
+        // Gửi email qua EmailJS (chỉ khi ENABLE_EMAIL_SENDING = true)
         let emailSent = false;
-        if (typeof emailjs !== 'undefined') {
+        if (ENABLE_EMAIL_SENDING && typeof emailjs !== 'undefined') {
           try {
+            // Prepare email data
+            const emailData = {
+              to_email: 'dhaorqq@gmail.com', // Email đích (chủ nhà)
+              reply_to: email || undefined, // Email người gửi (nếu có)
+              from_name: name,
+              name: name,
+              count: count.toString(),
+              phone: payload.phone,
+              email: payload.email,
+              note: payload.note,
+              date: payload.date,
+              message: `RSVP từ ${name}\nSố người: ${count}\nĐiện thoại: ${payload.phone}\nEmail: ${payload.email}\nLời nhắn: ${payload.note}\nThời gian: ${payload.date}`
+            };
+            
+            // Nếu có email người gửi, gửi email xác nhận đến họ
+            if (email) {
+              emailData.guest_email = email;
+            }
+            
             const result = await emailjs.send(
               EMAILJS_CONFIG.SERVICE_ID,
               EMAILJS_CONFIG.TEMPLATE_ID,
-              {
-                to_email: 'dhaorqq@gmail.com',
-                from_name: name,
-                name: name,
-                count: count.toString(),
-                phone: payload.phone,
-                note: payload.note,
-                date: payload.date,
-                message: `RSVP từ ${name}\nSố người: ${count}\nĐiện thoại: ${payload.phone}\nLời nhắn: ${payload.note}\nThời gian: ${payload.date}`
-              }
+              emailData
             );
             
             console.log('Email sent successfully:', result);
@@ -835,6 +972,8 @@
             // Thành công
             success.style.display = 'inline';
             success.textContent = 'Đã gửi RSVP thành công! Hẹn gặp bạn nhé.';
+            // Hiển thị preview ngay lập tức
+            showInvitationPreview(name, payload.note);
             form.reset();
           } catch (emailError) {
             console.error('========== EmailJS Error ==========');
@@ -862,6 +1001,7 @@
               name: name,
               count: count.toString(),
               phone: payload.phone,
+              email: payload.email,
               note: payload.note,
               date: payload.date
             });
@@ -870,12 +1010,21 @@
             // Vẫn hiển thị thành công nếu đã lưu localStorage
             success.style.display = 'inline';
             success.textContent = 'Đã nhận lời hẹn! Hẹn gặp bạn nhé.';
+            // Hiển thị preview ngay lập tức
+            showInvitationPreview(name, payload.note);
             form.reset();
           }
         } else {
-          console.warn('EmailJS chưa được load. Vui lòng kiểm tra kết nối mạng.');
+          // Không gửi email (testing mode hoặc EmailJS chưa load)
+          if (!ENABLE_EMAIL_SENDING) {
+            console.log('Email sending is disabled (ENABLE_EMAIL_SENDING = false)');
+          } else {
+            console.warn('EmailJS chưa được load. Vui lòng kiểm tra kết nối mạng.');
+          }
           success.style.display = 'inline';
           success.textContent = 'Đã nhận lời hẹn! Hẹn gặp bạn nhé.';
+          // Hiển thị preview ngay lập tức
+          showInvitationPreview(name, payload.note);
           form.reset();
         }
         
@@ -1008,6 +1157,204 @@
 
       // Initialize
       updateButtons();
+    }
+
+    // Draw invitation card on canvas (reusable for preview and PDF)
+    async function drawInvitationCard(name, message, scale = 1) {
+      // Load template image
+      const templateImg = new Image();
+      templateImg.crossOrigin = 'anonymous';
+      
+      await new Promise((resolve, reject) => {
+        templateImg.onload = resolve;
+        templateImg.onerror = () => reject(new Error('Không thể tải template image'));
+        templateImg.src = './images/Templatecard.png';
+      });
+
+      // Get image dimensions
+      const imgWidth = templateImg.width;
+      const imgHeight = templateImg.height;
+      
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = imgWidth * scale;
+      canvas.height = imgHeight * scale;
+      const ctx = canvas.getContext('2d');
+
+      // Draw template image
+      ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+
+      // Set text baseline
+      ctx.textBaseline = 'middle';
+
+      // Draw text above "Đào Hảo" banner: "THÂN MỜI TÌNH YÊU NAME ĐẾN KÌ YẾU CỤA"
+      if (name) {
+        const bannerY = 80 * scale; // Position above "Đào Hảo" banner (higher up)
+        const centerX = canvas.width / 2;
+        
+        // Font for regular text parts (black, uppercase, larger)
+        ctx.font = `bold ${20 * scale}px 'Inter', sans-serif`;
+        ctx.fillStyle = '#000000'; // Black color
+        ctx.textAlign = 'left';
+        
+        // Text parts: "THÂN MỜI " + "TÌNH YÊU " + name + " ĐẾN KÌ YẾU CỤA"
+        const prefixText = 'THÂN MỜI ';
+        const middleText = 'TÌNH YÊU ';
+        const suffixText = ' ĐẾN KÌ YẾU CỤA';
+        
+        // Measure text widths
+        ctx.font = `bold ${20 * scale}px 'Inter', sans-serif`;
+        const prefixWidth = ctx.measureText(prefixText).width;
+        const middleWidth = ctx.measureText(middleText).width;
+        const suffixWidth = ctx.measureText(suffixText).width;
+        
+        // Font for name (style like "Đào Hảo" - black, script, larger)
+        ctx.font = `bold ${40 * scale}px 'Great Vibes', cursive`;
+        const nameWidth = ctx.measureText(name).width;
+        
+        // Calculate total width and starting x to center everything
+        const totalWidth = prefixWidth + middleWidth + nameWidth + suffixWidth;
+        let currentX = centerX - (totalWidth / 2);
+        
+        // Draw "THÂN MỜI "
+        ctx.font = `bold ${20 * scale}px 'Inter', sans-serif`;
+        ctx.fillStyle = '#000000'; // Black color
+        ctx.textAlign = 'left';
+        ctx.fillText(prefixText, currentX, bannerY);
+        currentX += prefixWidth;
+        
+        // Draw "TÌNH YÊU "
+        ctx.fillText(middleText, currentX, bannerY);
+        currentX += middleWidth;
+        
+        // Draw name with special style (black, script, like "Đào Hảo")
+        ctx.font = `bold ${40 * scale}px 'Great Vibes', cursive`;
+        ctx.fillStyle = '#000000'; // Black color
+        ctx.fillText(name, currentX, bannerY);
+        currentX += nameWidth;
+        
+        // Draw " ĐẾN KÌ YẾU CỤA"
+        ctx.font = `bold ${20 * scale}px 'Inter', sans-serif`;
+        ctx.fillStyle = '#000000'; // Black color
+        ctx.fillText(suffixText, currentX, bannerY);
+      }
+
+      return { canvas, imgWidth, imgHeight };
+    }
+
+    // Show invitation preview modal
+    let currentName = '';
+    let currentMessage = '';
+    
+    async function showInvitationPreview(name, message) {
+      currentName = name;
+      currentMessage = message;
+      
+      const modal = document.getElementById('preview-modal');
+      const container = document.getElementById('preview-canvas-container');
+      
+      if (!modal || !container) return;
+      
+      // Clear previous canvas
+      container.innerHTML = '';
+      
+      try {
+        // Draw preview (scale 1:1)
+        const { canvas } = await drawInvitationCard(name, message, 1);
+        container.appendChild(canvas);
+        
+        // Show modal
+        modal.classList.add('show');
+        
+        // Setup close handler
+        const closeBtn = document.getElementById('preview-close');
+        const closeModal = () => {
+          modal.classList.remove('show');
+          // Show download button with animation after closing
+          setTimeout(() => {
+            const downloadSection = document.getElementById('download-section');
+            const downloadBtn = document.getElementById('download-invitation-btn');
+            if (downloadSection && downloadBtn) {
+              downloadSection.style.display = 'block';
+              downloadBtn.onclick = () => generateInvitationPDF(currentName, currentMessage);
+              // Add animation classes
+              downloadBtn.classList.add('download-btn-pulse', 'download-btn-glow');
+            }
+          }, 300);
+        };
+        
+        if (closeBtn) {
+          closeBtn.onclick = closeModal;
+        }
+        
+        // Close on background click
+        modal.onclick = (e) => {
+          if (e.target === modal) {
+            closeModal();
+          }
+        };
+        
+        // Close on Escape key
+        const escapeHandler = (e) => {
+          if (e.key === 'Escape' && modal.classList.contains('show')) {
+            closeModal();
+            document.removeEventListener('keydown', escapeHandler);
+          }
+        };
+        document.addEventListener('keydown', escapeHandler);
+        
+      } catch (error) {
+        console.error('Error showing preview:', error);
+        alert('Có lỗi xảy ra khi tải preview. Vui lòng thử lại.');
+      }
+    }
+
+    // Generate PDF Invitation Card
+    async function generateInvitationPDF(name, message) {
+      const downloadBtn = document.getElementById('download-invitation-btn');
+      if (downloadBtn) {
+        // Remove animation when user clicks
+        downloadBtn.classList.remove('download-btn-pulse', 'download-btn-glow');
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = 'Đang tạo thiệp...';
+      }
+
+      try {
+        // Draw canvas for PDF (scale = 1 for 1:1 ratio)
+        const { canvas, imgWidth, imgHeight } = await drawInvitationCard(name, message, 1);
+
+        // Convert canvas to PDF using jsPDF
+        const { jsPDF } = window.jspdf;
+        // Calculate dimensions in mm (assuming 96 DPI: 1px = 0.264583mm)
+        const widthMM = (imgWidth * 0.264583);
+        const heightMM = (imgHeight * 0.264583);
+        
+        const pdf = new jsPDF({
+          orientation: widthMM > heightMM ? 'landscape' : 'portrait',
+          unit: 'mm',
+          format: [widthMM, heightMM]
+        });
+
+        // Add canvas image to PDF
+        const imgData = canvas.toDataURL('image/png', 1.0);
+        pdf.addImage(imgData, 'PNG', 0, 0, widthMM, heightMM);
+
+        // Download PDF
+        const fileName = `ThiepMoi_${name.replace(/\s+/g, '_')}.pdf`;
+        pdf.save(fileName);
+
+        if (downloadBtn) {
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = '📥 Tải thiệp mời';
+        }
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Có lỗi xảy ra khi tạo thiệp mời. Vui lòng thử lại.');
+        if (downloadBtn) {
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = '📥 Tải thiệp mời';
+        }
+      }
     }
 
   </script>
